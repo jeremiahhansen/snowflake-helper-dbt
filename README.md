@@ -5,8 +5,36 @@ A re-usable Snowflake helper package for dbt
 ### Materializations
 Custom materializations which leverage native Snowflake capabilities
 
-#### sfc_incremental
-An incremental materialization pattern leveraging Snowflake streams
+#### sfc_incremental ([source](macros/materializations/sfc_incremental.sql))
+An incremental materialization pattern which leverages Snowflake streams for CDC.
 
-#### sfc_task
+This materialization is appropriate for cases when the source table does not have an update timestamp column or when performance is poor. If the stream does not exist on the table then the materialization will create it.
+
+Usage:
+```sql
+{{
+    config(
+        materialized='sfc_incremental',
+        transient=false,
+        unique_key='PROGRAM_ID' 
+    )
+}}
+
+SELECT
+     PROGRAM_ID
+    ,PROGRAM_NAME
+    ,RANGE_START
+    ,RANGE_END
+    {{ sf_get_stream_metadata_columns() }}
+FROM {{ source('CITIBIKE', 'PROGRAMS_STREAM') }}
+WHERE 1 = 1
+    AND {{ sf_get_stream_metadata_filters() }}
+```
+
+Configuration values:
+* `unique_key`: the column used to uniquely identify a record and which is used to determine if a record has changed
+
+
+#### sfc_task ([source](macros/materializations/sfc_task.sql))
+
 An experimental materialization to manage Snowflake tasks. Not sure if this fits the dbt paradigm correctly.
