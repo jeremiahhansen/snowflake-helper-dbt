@@ -1,21 +1,39 @@
-{% macro sf_get_stream_metadata_columns(alias) -%}
-    {% set final_alias = '' -%}
-    {% if alias -%}
-        {% set final_alias = alias + '.' -%}
-    {% endif -%}
+{% macro sfc_get_stream_name(table_name) -%}
+    {{ return(table_name + '_STREAM') }}
+{%- endmacro %}
 
-    ,{{ final_alias }}METADATA$ACTION
-    ,{{ final_alias }}METADATA$ISUPDATE
-    ,{{ final_alias }}METADATA$ROW_ID
+{% macro sfc_get_create_stream_ddl(schema_name, table_name) -%}
+    {%- set stream_name = sfc_get_stream_name(table_name) -%}
+    {%- set stream_relation = api.Relation.create(schema=schema_name, identifier=stream_name) %}
+    {%- set table_relation = api.Relation.create(schema=schema_name, identifier=table_name) %}
+
+    CREATE STREAM IF NOT EXISTS {{ stream_relation }} ON TABLE {{ table_relation }}
+{%- endmacro %}
+
+{% macro sf_get_stream_metadata_columns(alias) -%}
+    {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
+    {%- if not full_refresh_mode -%}
+        {% set final_alias = '' -%}
+        {% if alias -%}
+            {% set final_alias = alias + '.' -%}
+        {% endif -%}
+
+        ,{{ final_alias }}METADATA$ACTION
+        ,{{ final_alias }}METADATA$ISUPDATE
+        ,{{ final_alias }}METADATA$ROW_ID
+    {% endif -%}
 {%- endmacro %}
 
 {% macro sf_get_stream_metadata_filters(alias) -%}
-    {% set final_alias = '' -%}
-    {% if alias -%}
-        {% set final_alias = alias + '.' -%}
-    {% endif -%}
+    {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
+    {%- if not full_refresh_mode -%}
+        {% set final_alias = '' -%}
+        {% if alias -%}
+            {% set final_alias = alias + '.' -%}
+        {% endif -%}
 
-    NOT ({{ final_alias }}METADATA$ACTION = 'DELETE' AND {{ final_alias }}METADATA$ISUPDATE = 'TRUE')
+        AND NOT ({{ final_alias }}METADATA$ACTION = 'DELETE' AND {{ final_alias }}METADATA$ISUPDATE = 'TRUE')
+    {% endif -%}
 {%- endmacro %}
 
 {% macro sf_create_temp_get_alter_sql(target_relation, tmp_relation, sql) -%}
