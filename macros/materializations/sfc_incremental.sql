@@ -1,18 +1,45 @@
+{% macro sfc_get_incremental_mode() -%}
+    {% set incremental_mode = False %}
+    {% set existing_relation = load_relation(this) %}
+    {% set full_refresh_mode = (flags.FULL_REFRESH == True) %}
+
+    {%- if existing_relation is not none and existing_relation.is_table and not full_refresh_mode -%}
+        {% set incremental_mode = True %}
+    {% endif -%}
+
+    {{ return(incremental_mode) }}
+{%- endmacro %}
+
 {% macro sfc_get_stream_name(table_name) -%}
     {{ return(table_name + '_STREAM') }}
 {%- endmacro %}
 
-{% macro sfc_get_create_stream_ddl(schema_name, table_name) -%}
-    {%- set stream_name = sfc_helper.sfc_get_stream_name(table_name) -%}
+{% macro sfc_get_stream_metadata(schema_name, stream_name) -%}
+    {#-- TODO: Need to add database or schema filtering --#}
+    {% call statement('show_stream', fetch_result=True) -%}
+        SHOW STREAMS LIKE '{{ stream_name }}'
+    {%- endcall %}
+
+    {%- set show_result = load_result('show_stream') -%}
+    {{ log(show_result, info=True) }}
+
+    {{ return(show_result['data']) }}
+{%- endmacro %}
+
+{% macro sfc_create_stream_on_table(schema_name, stream_name, table_name) -%}
     {%- set stream_relation = api.Relation.create(schema=schema_name, identifier=stream_name) %}
     {%- set table_relation = api.Relation.create(schema=schema_name, identifier=table_name) %}
 
-    CREATE STREAM IF NOT EXISTS {{ stream_relation }} ON TABLE {{ table_relation }}
+    {% call statement('create_stream') -%}
+        CREATE STREAM {{ stream_relation }} ON TABLE {{ table_relation }}
+    {%- endcall %}
+
+    {{ log("Created stream " ~ stream_relation ~ " on table " ~ table_relation ~ ".", info=True) }}
 {%- endmacro %}
 
 {% macro sfc_get_stream_metadata_columns(alias) -%}
-    {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
-    {%- if not full_refresh_mode -%}
+    {% set incremental_mode = sfc_helper.sfc_get_incremental_mode() %}
+    {%- if incremental_mode -%}
         {% set final_alias = '' -%}
         {% if alias -%}
             {% set final_alias = alias + '.' -%}
@@ -25,8 +52,8 @@
 {%- endmacro %}
 
 {% macro sfc_get_stream_metadata_filters(alias) -%}
-    {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
-    {%- if not full_refresh_mode -%}
+    {% set incremental_mode = sfc_helper.sfc_get_incremental_mode() %}
+    {%- if incremental_mode -%}
         {% set final_alias = '' -%}
         {% if alias -%}
             {% set final_alias = alias + '.' -%}
@@ -34,22 +61,6 @@
 
         AND NOT ({{ final_alias }}METADATA$ACTION = 'DELETE' AND {{ final_alias }}METADATA$ISUPDATE = 'TRUE')
     {% endif -%}
-{%- endmacro %}
-
-{% macro sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) -%}
-    {#-- Load the model into a real table with temporary name. Need to run this first so the object exists to query below. --#}
-    {% do run_query(create_table_as(False, tmp_relation, sql)) %}
-
-    {#-- Drop the Snowflake STREAM metadata columns --#}
-    {% set dest_columns = adapter.get_columns_in_relation(tmp_relation) %}
-    {% for column in dest_columns -%}
-        {% if (column.name == 'METADATA$ACTION') or (column.name == 'METADATA$ISUPDATE') or (column.name == 'METADATA$ROW_ID') %}
-            ALTER TABLE {{ tmp_relation }} DROP COLUMN {{ adapter.quote(column.name) }};
-        {% endif %}
-    {% endfor -%}
-
-    {#-- Rename the table to the final target name --#}
-    ALTER TABLE {{ tmp_relation }} RENAME TO {{ target_relation }};
 {%- endmacro %}
 
 {% macro sfc_get_stream_merge_sql(target, source, unique_key, dest_columns) -%}
@@ -86,11 +97,11 @@
 {% materialization sfc_incremental, adapter='snowflake' -%}
 
   {%- set unique_key = config.get('unique_key') -%}
-  {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
 
   {% set target_relation = this %}
   {% set existing_relation = load_relation(this) %}
   {% set tmp_relation = make_temp_relation(this) %}
+  {% set incremental_mode = sfc_helper.sfc_get_incremental_mode() %}
 
   -- setup
   {{ run_hooks(pre_hooks, inside_transaction=False) }}
@@ -98,16 +109,14 @@
   -- `BEGIN` happens here:
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
 
-  {% if existing_relation is none %}
-    {% set build_sql = sfc_helper.sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
-  {% elif existing_relation.is_view %}
-    {#-- Can't overwrite a view with a table - we must drop --#}
-    {{ log("Dropping relation " ~ target_relation ~ " because it is a view and this model is a table.") }}
+  {#-- If the target relation already exists as a view drop it now --#}
+  {% if existing_relation.is_view %}
+    {{ log("Dropping relation " ~ existing_relation ~ " because it is a view and this model is a table.") }}
     {% do adapter.drop_relation(existing_relation) %}
-    {% set build_sql = sfc_helper.sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
-  {% elif full_refresh_mode %}
-    {% set build_sql = sfc_helper.sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
-  {% else %}
+  {% endif %}
+
+  {#-- Option #1: We need to incrementally add data to the target --#}
+  {% if incremental_mode %}
     {% do run_query(create_table_as(True, tmp_relation, sql)) %}
     {% do adapter.expand_target_column_types(
            from_relation=tmp_relation,
@@ -119,6 +128,10 @@
                 | rejectattr('name', 'equalto', 'METADATA$ROW_ID')
                 | list %}
     {% set build_sql = sfc_helper.sfc_get_stream_merge_sql(target_relation, tmp_relation, unique_key, dest_columns) %}
+
+  {#-- Option #2: We need to create/recreate the target --#}
+  {% else %}
+    {% set build_sql = create_table_as(False, target_relation, sql) %}
   {% endif %}
 
   {%- call statement('main') -%}
