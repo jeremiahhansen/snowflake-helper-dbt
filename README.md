@@ -2,6 +2,26 @@
 A re-usable Snowflake helper package for dbt
 
 ## Macros
+
+### General
+General macros to help working with Snowflake
+
+#### sfc_source(schema_name, table_name) ([source](macros/sfc_ref.sql))
+This macro is a wrapper around the builtin source() function which allows for dynamicly changing which source table is referenced by the current model.
+
+Usage:
+```
+FROM {{ sfc_source('CITIBIKE', 'PROGRAMS') }}
+```
+
+Parameters:
+* `schema_name`: the name of the schema where the source table resides
+* `table_name`: the name of the source table
+
+#### sfc_ref(model_name) ([source](macros/sfc_ref.sql))
+This macro is a wrapper around the builtin ref() function which allows for dynamicly changing which model is referenced by the current model.
+
+
 ### Materializations
 Custom materializations which leverage native Snowflake capabilities
 
@@ -33,6 +53,7 @@ WHERE 1 = 1
 ```
 
 Configuration values:
+* `pre_hook`: use the `sfc_get_create_stream_ddl()` macro to generate the SQL needed to create the stream if it doesn't exist
 * `unique_key`: the column used to uniquely identify a record and which is used to determine if a record has changed
 
 
