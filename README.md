@@ -15,6 +15,7 @@ Usage:
 {{
     config(
         materialized='sfc_incremental',
+        pre_hook="{{ sfc_get_create_stream_ddl('CITIBIKE','PROGRAMS') }}",
         transient=false,
         unique_key='PROGRAM_ID' 
     )
@@ -26,9 +27,9 @@ SELECT
     ,RANGE_START
     ,RANGE_END
     {{ sf_get_stream_metadata_columns() }}
-FROM {{ source('CITIBIKE', 'PROGRAMS_STREAM') }}
+FROM {{ sfc_source('CITIBIKE', 'PROGRAMS') }}
 WHERE 1 = 1
-    AND {{ sf_get_stream_metadata_filters() }}
+    {{ sf_get_stream_metadata_filters() }}
 ```
 
 Configuration values:
