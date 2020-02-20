@@ -37,7 +37,6 @@ Usage:
 {{
     config(
         materialized='sfc_incremental',
-        pre_hook="{{ sfc_helper.sfc_get_create_stream_ddl('CITIBIKE','PROGRAMS') }}",
         transient=false,
         unique_key='PROGRAM_ID' 
     )
@@ -55,7 +54,6 @@ WHERE 1 = 1
 ```
 
 Configuration values:
-* `pre_hook`: use the `sfc_helper.sfc_get_create_stream_ddl()` macro to generate the SQL needed to create the stream if it doesn't exist
 * `unique_key`: the column used to uniquely identify a record and which is used to determine if a record has changed
 
 
