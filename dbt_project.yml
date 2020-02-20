@@ -1,9 +1,8 @@
 name: 'snowflake_helper_dbt'
 version: '0.1.0'
 
-require-dbt-version: ">=0.15.2"
+require-dbt-version: ">=0.15.0"
 
 target-path: "target"
 clean-targets: ["target", "dbt_modules"]
-docs-paths: ["docs"]
 macro-paths: ["macros"]
