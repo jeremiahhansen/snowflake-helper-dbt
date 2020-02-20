@@ -46,10 +46,10 @@ SELECT
     ,PROGRAM_NAME
     ,RANGE_START
     ,RANGE_END
-    {{ sf_get_stream_metadata_columns() }}
+    {{ sfc_get_stream_metadata_columns() }}
 FROM {{ sfc_source('CITIBIKE', 'PROGRAMS') }}
 WHERE 1 = 1
-    {{ sf_get_stream_metadata_filters() }}
+    {{ sfc_get_stream_metadata_filters() }}
 ```
 
 Configuration values:

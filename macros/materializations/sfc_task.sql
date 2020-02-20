@@ -1,4 +1,4 @@
-{% macro sf_create_task_sql(target_relation, sfc_warehouse, sfc_task_schedule, sql) -%}
+{% macro sfc_create_task_sql(target_relation, sfc_warehouse, sfc_task_schedule, sql) -%}
 
     CREATE OR REPLACE TASK {{ target_relation }}
         WAREHOUSE = {{ sfc_warehouse }}
@@ -8,7 +8,7 @@
     ;
 {%- endmacro %}
 
-{% macro sf_resume_task(target_relation) -%}
+{% macro sfc_resume_task(target_relation) -%}
   {% call statement('resume_task') -%}
     ALTER TASK {{ target_relation }} RESUME
   {%- endcall %}
@@ -28,13 +28,13 @@
   -- `BEGIN` happens here:
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
 
-  {% set build_sql = sf_create_task_sql(target_relation, sfc_warehouse, sfc_task_schedule, sql) %}
+  {% set build_sql = sfc_create_task_sql(target_relation, sfc_warehouse, sfc_task_schedule, sql) %}
 
   {%- call statement('main') -%}
     {{ build_sql }}
   {%- endcall -%}
 
-  {% do sf_resume_task(target_relation) %}
+  {% do sfc_resume_task(target_relation) %}
 
   {{ run_hooks(post_hooks, inside_transaction=True) }}
 

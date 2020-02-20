@@ -10,7 +10,7 @@
     CREATE STREAM IF NOT EXISTS {{ stream_relation }} ON TABLE {{ table_relation }}
 {%- endmacro %}
 
-{% macro sf_get_stream_metadata_columns(alias) -%}
+{% macro sfc_get_stream_metadata_columns(alias) -%}
     {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
     {%- if not full_refresh_mode -%}
         {% set final_alias = '' -%}
@@ -24,7 +24,7 @@
     {% endif -%}
 {%- endmacro %}
 
-{% macro sf_get_stream_metadata_filters(alias) -%}
+{% macro sfc_get_stream_metadata_filters(alias) -%}
     {%- set full_refresh_mode = (flags.FULL_REFRESH == True) -%}
     {%- if not full_refresh_mode -%}
         {% set final_alias = '' -%}
@@ -36,7 +36,7 @@
     {% endif -%}
 {%- endmacro %}
 
-{% macro sf_create_temp_get_alter_sql(target_relation, tmp_relation, sql) -%}
+{% macro sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) -%}
     {#-- Load the model into a real table with temporary name. Need to run this first so the object exists to query below. --#}
     {% do run_query(create_table_as(False, tmp_relation, sql)) %}
 
@@ -52,7 +52,7 @@
     ALTER TABLE {{ tmp_relation }} RENAME TO {{ target_relation }};
 {%- endmacro %}
 
-{% macro sf_get_stream_merge_sql(target, source, unique_key, dest_columns) -%}
+{% macro sfc_get_stream_merge_sql(target, source, unique_key, dest_columns) -%}
     {% set dest_cols_csv =  get_quoted_csv(dest_columns | map(attribute="name")) -%}
 
     MERGE INTO {{ target }} T
@@ -99,14 +99,14 @@
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
 
   {% if existing_relation is none %}
-    {% set build_sql = sf_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
+    {% set build_sql = sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
   {% elif existing_relation.is_view %}
     {#-- Can't overwrite a view with a table - we must drop --#}
     {{ log("Dropping relation " ~ target_relation ~ " because it is a view and this model is a table.") }}
     {% do adapter.drop_relation(existing_relation) %}
-    {% set build_sql = sf_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
+    {% set build_sql = sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
   {% elif full_refresh_mode %}
-    {% set build_sql = sf_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
+    {% set build_sql = sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
   {% else %}
     {% do run_query(create_table_as(True, tmp_relation, sql)) %}
     {% do adapter.expand_target_column_types(
@@ -118,7 +118,7 @@
                 | rejectattr('name', 'equalto', 'METADATA$ISUPDATE')
                 | rejectattr('name', 'equalto', 'METADATA$ROW_ID')
                 | list %}
-    {% set build_sql = sf_get_stream_merge_sql(target_relation, tmp_relation, unique_key, dest_columns) %}
+    {% set build_sql = sfc_get_stream_merge_sql(target_relation, tmp_relation, unique_key, dest_columns) %}
   {% endif %}
 
   {%- call statement('main') -%}
