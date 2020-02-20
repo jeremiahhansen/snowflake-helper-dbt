@@ -3,7 +3,7 @@
 {%- endmacro %}
 
 {% macro sfc_get_create_stream_ddl(schema_name, table_name) -%}
-    {%- set stream_name = sfc_get_stream_name(table_name) -%}
+    {%- set stream_name = snowflake_helper_dbt.sfc_get_stream_name(table_name) -%}
     {%- set stream_relation = api.Relation.create(schema=schema_name, identifier=stream_name) %}
     {%- set table_relation = api.Relation.create(schema=schema_name, identifier=table_name) %}
 
@@ -99,14 +99,14 @@
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
 
   {% if existing_relation is none %}
-    {% set build_sql = sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
+    {% set build_sql = snowflake_helper_dbt.sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
   {% elif existing_relation.is_view %}
     {#-- Can't overwrite a view with a table - we must drop --#}
     {{ log("Dropping relation " ~ target_relation ~ " because it is a view and this model is a table.") }}
     {% do adapter.drop_relation(existing_relation) %}
-    {% set build_sql = sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
+    {% set build_sql = snowflake_helper_dbt.sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
   {% elif full_refresh_mode %}
-    {% set build_sql = sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
+    {% set build_sql = snowflake_helper_dbt.sfc_create_temp_get_alter_sql(target_relation, tmp_relation, sql) %}
   {% else %}
     {% do run_query(create_table_as(True, tmp_relation, sql)) %}
     {% do adapter.expand_target_column_types(
@@ -118,7 +118,7 @@
                 | rejectattr('name', 'equalto', 'METADATA$ISUPDATE')
                 | rejectattr('name', 'equalto', 'METADATA$ROW_ID')
                 | list %}
-    {% set build_sql = sfc_get_stream_merge_sql(target_relation, tmp_relation, unique_key, dest_columns) %}
+    {% set build_sql = snowflake_helper_dbt.sfc_get_stream_merge_sql(target_relation, tmp_relation, unique_key, dest_columns) %}
   {% endif %}
 
   {%- call statement('main') -%}

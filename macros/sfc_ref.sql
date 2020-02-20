@@ -4,7 +4,7 @@
 
     {% if materialization_name == 'sfc_incremental' %}
 
-        {%- set stream_name = sfc_get_stream_name(table_name) -%}
+        {%- set stream_name = snowflake_helper_dbt.sfc_get_stream_name(table_name) -%}
 
         {#-- Decide between the base table or stream --#}
         {% if full_refresh_mode %}

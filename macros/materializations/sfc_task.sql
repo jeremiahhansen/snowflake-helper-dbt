@@ -28,13 +28,13 @@
   -- `BEGIN` happens here:
   {{ run_hooks(pre_hooks, inside_transaction=True) }}
 
-  {% set build_sql = sfc_create_task_sql(target_relation, sfc_warehouse, sfc_task_schedule, sql) %}
+  {% set build_sql = snowflake_helper_dbt.sfc_create_task_sql(target_relation, sfc_warehouse, sfc_task_schedule, sql) %}
 
   {%- call statement('main') -%}
     {{ build_sql }}
   {%- endcall -%}
 
-  {% do sfc_resume_task(target_relation) %}
+  {% do snowflake_helper_dbt.sfc_resume_task(target_relation) %}
 
   {{ run_hooks(post_hooks, inside_transaction=True) }}
 
