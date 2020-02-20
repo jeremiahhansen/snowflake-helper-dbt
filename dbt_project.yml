@@ -1,4 +1,4 @@
-name: 'snowflake_helper_dbt'
+name: 'sfc_helper'
 version: '0.1.0'
 
 require-dbt-version: ">=0.15.0"

@@ -11,7 +11,7 @@ This macro is a wrapper around the builtin source() function which allows for dy
 
 Usage:
 ```
-FROM {{ snowflake_helper_dbt.sfc_source('CITIBIKE', 'PROGRAMS') }}
+FROM {{ sfc_helper.sfc_source('CITIBIKE', 'PROGRAMS') }}
 ```
 
 Parameters:
@@ -37,7 +37,7 @@ Usage:
 {{
     config(
         materialized='sfc_incremental',
-        pre_hook="{{ snowflake_helper_dbt.sfc_get_create_stream_ddl('CITIBIKE','PROGRAMS') }}",
+        pre_hook="{{ sfc_helper.sfc_get_create_stream_ddl('CITIBIKE','PROGRAMS') }}",
         transient=false,
         unique_key='PROGRAM_ID' 
     )
@@ -48,14 +48,14 @@ SELECT
     ,PROGRAM_NAME
     ,RANGE_START
     ,RANGE_END
-    {{ snowflake_helper_dbt.sfc_get_stream_metadata_columns() }}
-FROM {{ snowflake_helper_dbt.sfc_source('CITIBIKE', 'PROGRAMS') }}
+    {{ sfc_helper.sfc_get_stream_metadata_columns() }}
+FROM {{ sfc_helper.sfc_source('CITIBIKE', 'PROGRAMS') }}
 WHERE 1 = 1
-    {{ snowflake_helper_dbt.sfc_get_stream_metadata_filters() }}
+    {{ sfc_helper.sfc_get_stream_metadata_filters() }}
 ```
 
 Configuration values:
-* `pre_hook`: use the `snowflake_helper_dbt.sfc_get_create_stream_ddl()` macro to generate the SQL needed to create the stream if it doesn't exist
+* `pre_hook`: use the `sfc_helper.sfc_get_create_stream_ddl()` macro to generate the SQL needed to create the stream if it doesn't exist
 * `unique_key`: the column used to uniquely identify a record and which is used to determine if a record has changed
 
 
