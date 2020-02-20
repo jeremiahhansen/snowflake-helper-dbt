@@ -30,6 +30,8 @@ An incremental materialization pattern which leverages Snowflake streams for CDC
 
 This materialization is appropriate for cases when the source table does not have an update timestamp column or when performance is poor. If the stream does not exist on the table then the materialization will create it.
 
+Check out the [Snowflake table stream documentation](https://docs.snowflake.net/manuals/user-guide/streams.html) for more details.
+
 Usage:
 ```sql
 {{
