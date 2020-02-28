@@ -61,7 +61,7 @@
     {% endif -%}
 {%- endmacro %}
 
-{% macro sfc_get_stream_merge_sql(target, source, unique_key) -%}
+{% macro sfc_get_stream_merge_sql(target_relation, source_relation, unique_key) -%}
     {#-- Don't include the Snowflake Stream metadata columns --#}
     {% set dest_columns = adapter.get_columns_in_relation(target_relation)
                 | rejectattr('name', 'equalto', 'METADATA$ACTION')
@@ -70,8 +70,8 @@
                 | list %}
     {% set dest_cols_csv =  get_quoted_csv(dest_columns | map(attribute="name")) -%}
 
-    MERGE INTO {{ target }} T
-    USING {{ source }} S
+    MERGE INTO {{ target_relation }} T
+    USING {{ source_relation }} S
 
     {% if unique_key -%}
         ON (T.{{ unique_key }} = S.{{ unique_key }})
