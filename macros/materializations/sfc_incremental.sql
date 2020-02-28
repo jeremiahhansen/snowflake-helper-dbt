@@ -21,8 +21,6 @@
     {%- endcall %}
 
     {%- set show_result = load_result('show_stream') -%}
-    {{ log(show_result, info=True) }}
-
     {{ return(show_result['data']) }}
 {%- endmacro %}
 
@@ -34,7 +32,7 @@
         CREATE STREAM {{ stream_relation }} ON TABLE {{ table_relation }}
     {%- endcall %}
 
-    {{ log("Created stream " ~ stream_relation ~ " on table " ~ table_relation ~ ".", info=True) }}
+    {{ log("Created stream " ~ stream_relation ~ " on table " ~ table_relation ~ ".") }}
 {%- endmacro %}
 
 {% macro sfc_get_stream_metadata_columns(alias) -%}
@@ -63,7 +61,13 @@
     {% endif -%}
 {%- endmacro %}
 
-{% macro sfc_get_stream_merge_sql(target, source, unique_key, dest_columns) -%}
+{% macro sfc_get_stream_merge_sql(target, source, unique_key) -%}
+    {#-- Don't include the Snowflake Stream metadata columns --#}
+    {% set dest_columns = adapter.get_columns_in_relation(target_relation)
+                | rejectattr('name', 'equalto', 'METADATA$ACTION')
+                | rejectattr('name', 'equalto', 'METADATA$ISUPDATE')
+                | rejectattr('name', 'equalto', 'METADATA$ROW_ID')
+                | list %}
     {% set dest_cols_csv =  get_quoted_csv(dest_columns | map(attribute="name")) -%}
 
     MERGE INTO {{ target }} T
@@ -117,20 +121,16 @@
 
   {#-- Option #1: We need to incrementally add data to the target --#}
   {% if incremental_mode %}
+    {#-- Load data from compiled model sql query into a temp table --#}
     {% do run_query(create_table_as(True, tmp_relation, sql)) %}
     {% do adapter.expand_target_column_types(
            from_relation=tmp_relation,
            to_relation=target_relation) %}
-    {#-- Don't include the Snowflake Stream metadata columns --#}
-    {% set dest_columns = adapter.get_columns_in_relation(target_relation)
-                | rejectattr('name', 'equalto', 'METADATA$ACTION')
-                | rejectattr('name', 'equalto', 'METADATA$ISUPDATE')
-                | rejectattr('name', 'equalto', 'METADATA$ROW_ID')
-                | list %}
-    {% set build_sql = sfc_helper.sfc_get_stream_merge_sql(target_relation, tmp_relation, unique_key, dest_columns) %}
+    {% set build_sql = sfc_helper.sfc_get_stream_merge_sql(target_relation, tmp_relation, unique_key) %}
 
   {#-- Option #2: We need to create/recreate the target --#}
   {% else %}
+    {#-- Load data from compiled model sql query into a real table --#}
     {% set build_sql = create_table_as(False, target_relation, sql) %}
   {% endif %}
 
