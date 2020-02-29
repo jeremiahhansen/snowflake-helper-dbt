@@ -17,7 +17,7 @@
 {% macro sfc_get_stream_metadata(schema_name, stream_name) -%}
     {#-- TODO: Need to add database or schema filtering --#}
     {% call statement('show_stream', fetch_result=True) -%}
-        SHOW STREAMS LIKE '{{ stream_name }}'
+        SHOW STREAMS LIKE '{{ stream_name }}' IN {{ schema_name }}
     {%- endcall %}
 
     {%- set show_result = load_result('show_stream') -%}
