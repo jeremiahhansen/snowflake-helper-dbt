@@ -15,13 +15,20 @@
 {%- endmacro %}
 
 {% macro sfc_get_stream_metadata(schema_name, stream_name) -%}
+    {%- set metadata = False -%}
+
     {#-- TODO: Need to add database or schema filtering --#}
     {% call statement('show_stream', fetch_result=True) -%}
         SHOW STREAMS LIKE '{{ stream_name }}'
     {%- endcall %}
 
     {%- set show_result = load_result('show_stream') -%}
-    {{ return(show_result['data']) }}
+    {% set metadata = show_result['data'] %}
+    {% if metadata|count == 0 %}
+        {% set metadata = False %}
+    {% endif %}
+
+    {{ return(metadata) }}
 {%- endmacro %}
 
 {% macro sfc_create_stream_on_table(schema_name, stream_name, table_name) -%}
